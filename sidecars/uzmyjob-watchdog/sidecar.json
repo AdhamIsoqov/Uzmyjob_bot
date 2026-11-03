@@ -1,0 +1,7 @@
+{
+  "name": "uzmyjob-watchdog",
+  "builtin": "schedule",
+  "cron": "0 */6 * * *",
+  "prompt": "smoke script ishga tushir; bot tushgan bo'lsa log yoz va docker compose restart; Prometheus metrikalarini tekshir (memory < 300 MB, uptime); daily report uchun statistikani yig'ib foydalanuvchiga yuborish."
+}
+
