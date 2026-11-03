@@ -1,5 +1,8 @@
 """Code Auditor Agent — gemini-4-argon bilan security/PII tekshirish."""
+import asyncio
 import json
+import sys
+from pathlib import Path
 
 from uzmyjob.agents.client import get_client
 from uzmyjob.utils.logger import log
@@ -41,3 +44,19 @@ async def audit_code(code: str, filename: str = "unknown.py") -> dict:
     except Exception as e:
         log.error("auditor_error", error=str(e))
         return {"issues": [], "passed": False, "error": str(e)}
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Foydalanish: python -m uzmyjob.agents.auditor <fayl_yo'li>")
+        sys.exit(1)
+
+    target_path = Path(sys.argv[1])
+    if not target_path.exists():
+        print(f"Xato: {target_path} topilmadi.")
+        sys.exit(1)
+
+    code_text = target_path.read_text(encoding="utf-8")
+    report = asyncio.run(audit_code(code_text, target_path.name))
+    print(json.dumps(report, indent=2, ensure_ascii=False))
+    sys.exit(0 if report.get("passed") else 1)
