@@ -210,9 +210,6 @@ async def main():
     app.router.add_get("/health", handle_healthcheck)
     app.router.add_get("/metrics", handle_metrics)
 
-    runner = web.AppRunner(app)
-    await runner.setup()
-
     # Telegram "Menu" tugmasi uchun buyruqlar ro'yxatini sozlash
     try:
         from aiogram.types import BotCommand
@@ -231,6 +228,7 @@ async def main():
         log.warning("bot_commands_registration_failed", error=str(e))
 
     listen_port = settings.port
+    runner: web.AppRunner | None = None
     try:
         if settings.webhook_url:
             # Production: Webhook rejimi
@@ -254,6 +252,8 @@ async def main():
             webhook_handler.register(app, path=webhook_path)
             setup_application(app, dp, bot=bot)
 
+            runner = web.AppRunner(app)
+            await runner.setup()
             site = web.TCPSite(runner, host="0.0.0.0", port=listen_port)
             await site.start()
             log.info("webhook_server_listening", port=listen_port)
@@ -261,6 +261,8 @@ async def main():
             await asyncio.Event().wait()
         else:
             # Development / Polling rejimi (lekin /health va /metrics portda faol)
+            runner = web.AppRunner(app)
+            await runner.setup()
             site = web.TCPSite(runner, host="0.0.0.0", port=listen_port)
             await site.start()
             log.info("healthcheck_server_listening", port=listen_port)
@@ -271,7 +273,8 @@ async def main():
 
     finally:
         scheduler.shutdown()
-        await runner.cleanup()
+        if runner is not None:
+            await runner.cleanup()
         await bot.session.close()
 
 
