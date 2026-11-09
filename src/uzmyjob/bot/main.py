@@ -153,8 +153,12 @@ async def main():
     dp.include_router(vacancies.router)
     dp.include_router(hh_auth.router)
 
-    # Prometheus server (port 8000, faqat local dev uchun)
-    start_prometheus_metrics_server(port=8000)
+    # Prometheus server (faqat Webhook bo'lmaganda yoki local dev uchun)
+    if not settings.webhook_url:
+        try:
+            start_prometheus_metrics_server(port=8000)
+        except Exception as e:
+            log.warning("prometheus_server_warning", error=str(e))
 
     # Baza jadvallarini tekshirish / migratsiyalarni bajarish
     await apply_database_migrations()
@@ -234,15 +238,18 @@ async def main():
             full_webhook_url = settings.normalized_webhook_url
             log.info("setting_webhook", url=full_webhook_url, port=listen_port)
 
+            secret_token = settings.clean_webhook_secret or None
+
             await bot.set_webhook(
                 url=full_webhook_url,
-                secret_token=settings.webhook_secret or None,
+                secret_token=secret_token,
+                drop_pending_updates=True,
             )
 
             webhook_handler = SimpleRequestHandler(
                 dispatcher=dp,
                 bot=bot,
-                secret_token=settings.webhook_secret or None,
+                secret_token=secret_token,
             )
             webhook_handler.register(app, path=webhook_path)
             setup_application(app, dp, bot=bot)

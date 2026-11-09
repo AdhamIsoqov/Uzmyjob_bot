@@ -77,5 +77,15 @@ class Settings(BaseSettings):
             return clean
         return f"{clean}/webhook"
 
+    @property
+    def clean_webhook_secret(self) -> str:
+        """Telegram Webhook secret_token faqat [A-Za-z0-9_-] belgilarni qabul qiladi."""
+        if not self.webhook_secret:
+            return ""
+        import re
+
+        cleaned = re.sub(r"[^A-Za-z0-9_-]", "", self.webhook_secret)
+        return cleaned[:256]
+
 
 settings = Settings()
