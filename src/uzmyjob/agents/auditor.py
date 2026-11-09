@@ -1,4 +1,4 @@
-"""Code Auditor Agent — gemini-4-argon bilan security/PII tekshirish."""
+"""Code Auditor Agent — gemini-2.5-flash bilan security/PII tekshirish."""
 import asyncio
 import json
 import sys
@@ -29,14 +29,18 @@ async def audit_code(code: str, filename: str = "unknown.py") -> dict:
     Kodni security/PII/ToS mezonlari bo'yicha tekshiradi.
     Returns: {"issues": [...], "passed": bool}
     """
-    client = get_client()
-    prompt = f"Fayl: {filename}\n\n```python\n{code}\n```"
     try:
-        interaction = client.interactions.create(
-            model="gemini-4-argon",
-            system_instruction=SYSTEM_INSTRUCTION,
-            input=prompt,
-            store=False,
+        client = get_client()
+        prompt = f"Fayl: {filename}\n\n```python\n{code}\n```"
+        interaction = await asyncio.wait_for(
+            asyncio.to_thread(
+                client.interactions.create,
+                model="gemini-2.5-flash",
+                system_instruction=SYSTEM_INSTRUCTION,
+                input=prompt,
+                store=False,
+            ),
+            timeout=15.0,
         )
         result = json.loads(interaction.output_text or '{"issues":[],"passed":true}')
         log.info("audit_complete", filename=filename, passed=result.get("passed"))
