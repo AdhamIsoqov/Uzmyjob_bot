@@ -6,6 +6,8 @@ from typing import Any
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 
+from uzmyjob.utils.metrics import THROTTLED_REQUESTS_TOTAL
+
 
 class ThrottlingMiddleware(BaseMiddleware):
     """Har foydalanuvchi uchun rate-limit (msg/min)."""
@@ -29,6 +31,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         self._user_timestamps[user_id] = [t for t in timestamps if now - t < window]
 
         if len(self._user_timestamps[user_id]) >= self.rate:
+            THROTTLED_REQUESTS_TOTAL.inc()
             await event.answer("⚠️ Juda tez yuboryapsiz. Biroz kuting.")
             return
 
