@@ -1,0 +1,25 @@
+[Unit]
+Description=UzMyJob Telegram Bot Systemd Service (Docker Prod)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/uzmyjob
+ExecStartPre=-/usr/bin/docker compose -f src/uzmyjob/deploy/docker-compose.prod.yml down
+ExecStart=/usr/bin/docker compose -f src/uzmyjob/deploy/docker-compose.prod.yml up
+ExecStop=/usr/bin/docker compose -f src/uzmyjob/deploy/docker-compose.prod.yml down
+Restart=always
+RestartSec=5s
+LimitNOFILE=65536
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+# Xavfsizlik cheklovlari
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+
