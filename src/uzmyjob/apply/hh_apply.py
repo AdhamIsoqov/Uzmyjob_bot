@@ -3,6 +3,7 @@ from typing import Any
 
 import httpx
 
+from uzmyjob.config import settings
 from uzmyjob.utils.logger import log
 
 
@@ -15,13 +16,13 @@ class HeadHunterApplyService:
 
     def __init__(
         self,
-        client_id: str,
-        client_secret: str,
+        client_id: str | None = None,
+        client_secret: str | None = None,
         redirect_uri: str = "https://t.me/Uzmyjob_bot",
         user_agent: str = "UzMyJobBot/1.0 (dev@uzmyjob.local)",
     ):
-        self.client_id = client_id
-        self.client_secret = client_secret
+        self.client_id = client_id or settings.hh_client_id
+        self.client_secret = client_secret or settings.hh_client_secret
         self.redirect_uri = redirect_uri
         self.user_agent = user_agent
 
@@ -159,4 +160,7 @@ class HeadHunterApplyService:
         except Exception as e:
             log.error("hh_apply_exception", error=str(e))
             return False, f"Tarmoq xatosi: {e!s}"
+
+
+HeadHunterApplyClient = HeadHunterApplyService
 
