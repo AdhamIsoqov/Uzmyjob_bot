@@ -55,6 +55,16 @@ class CVParser:
         else:
             text = ""
 
+        # Agar PDF/DOCX kutubxonalari o'qiy olmasa (masalan test yoki matnli fayl bo'lsa), matn sifatida o'qishga urinish
+        if not text:
+            try:
+                text = file_bytes.decode("utf-8")
+            except Exception:
+                try:
+                    text = file_bytes.decode("latin1")
+                except Exception:
+                    text = ""
+
         # Email topish
         email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text)
         email = email_match.group(0) if email_match else ""
@@ -63,20 +73,50 @@ class CVParser:
         phone_match = re.search(r"(\+?998[\d\s-]{9,}|[\+\d\s\(\)-]{10,})", text)
         phone = phone_match.group(0).strip() if phone_match else ""
 
-        # Oddiy texnologik kalit so'zlarni qidirish
+        # Telegram topish (@username yoki t.me/username)
+        tg_match = re.search(r"(?:@|(?:https?:\/\/)?t\.me\/)([a-zA-Z0-9_]{5,32})", text)
+        telegram = f"@{tg_match.group(1)}" if tg_match else ""
+
+        # GitHub va LinkedIn profillarini topish
+        github_match = re.search(r"https?:\/\/(?:www\.)?github\.com\/[a-zA-Z0-9_-]+", text, re.IGNORECASE)
+        github = github_match.group(0) if github_match else ""
+
+        linkedin_match = re.search(r"https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+", text, re.IGNORECASE)
+        linkedin = linkedin_match.group(0) if linkedin_match else ""
+
+        # Taxminiy tajriba yillarini topish (masalan: "3 yil tajriba", "5 years experience", "4 года опыта")
+        exp_match = re.search(
+            r"(\d{1,2})\+?\s*(?:yil|yillik|year|years|let|goda?|лет|года?)\b(?:\s+(?:tajriba|experience|staj|стаж|opit|опыт))?",
+            text,
+            re.IGNORECASE,
+        )
+        experience_years = int(exp_match.group(1)) if exp_match else None
+
+        # Kengaytirilgan texnologik ko'nikmalar (skills)
         common_tech = [
-            "python", "django", "fastapi", "flask", "postgresql", "mysql", "redis",
-            "docker", "kubernetes", "git", "linux", "rest api", "graphql", "celery",
-            "javascript", "typescript", "react", "vue", "nodejs", "aws", "ci/cd"
+            "python", "django", "fastapi", "flask", "postgresql", "mysql", "sqlite",
+            "redis", "mongodb", "elasticsearch", "docker", "kubernetes", "git", "linux",
+            "rest api", "graphql", "grpc", "celery", "rabbitmq", "kafka",
+            "javascript", "typescript", "react", "vue", "angular", "next.js", "nextjs",
+            "nodejs", "nest.js", "nestjs", "express", "aws", "gcp", "azure", "ci/cd",
+            "golang", "go", "java", "spring", "spring boot", "c#", ".net", "php",
+            "laravel", "symfony", "flutter", "dart", "kotlin", "swift", "rust",
+            "tailwind", "bootstrap", "html", "css", "redux", "microservices"
         ]
-        found_skills = [
-            tech for tech in common_tech
-            if re.search(rf"\b{re.escape(tech)}\b", text, re.IGNORECASE)
-        ]
+        found_skills = []
+        for tech in common_tech:
+            # So'z chegarasini tekshirish (masalan C# yoki Next.js kabi belgilar uchun xavfsiz)
+            pattern = rf"(?<!\w){re.escape(tech)}(?!\w)"
+            if re.search(pattern, text, re.IGNORECASE) and tech not in found_skills:
+                found_skills.append(tech)
 
         return {
             "text": text,
             "email": email,
             "phone": phone,
+            "telegram": telegram,
+            "github": github,
+            "linkedin": linkedin,
             "detected_skills": found_skills,
+            "experience_years": experience_years,
         }
