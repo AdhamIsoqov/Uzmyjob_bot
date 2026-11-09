@@ -108,7 +108,7 @@ async def handle_healthcheck(_request: web.Request) -> web.Response:
 async def handle_metrics(_request: web.Request) -> web.Response:
     """HTTP /metrics endpoint — Prometheus va Render yagona portli monitoring uchun."""
     await update_system_gauges()
-    return web.Response(body=generate_latest(), content_type=CONTENT_TYPE_LATEST)
+    return web.Response(body=generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST})
 
 
 async def apply_database_migrations():
