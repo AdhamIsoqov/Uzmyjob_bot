@@ -8,6 +8,7 @@ from aiogram.enums import ParseMode
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import func, select
 
 import uzmyjob.models  # noqa: F401
@@ -25,7 +26,7 @@ from uzmyjob.utils.backup import create_database_backup
 from uzmyjob.utils.crypto import decrypt_str, encrypt_str
 from uzmyjob.utils.healthcheck import run_healthcheck
 from uzmyjob.utils.logger import log, setup_logging
-from uzmyjob.utils.metrics import start_prometheus_metrics_server
+from uzmyjob.utils.metrics import start_prometheus_metrics_server, update_system_gauges
 
 
 async def scheduled_pipeline_job(pipeline: JobPipeline):
@@ -98,10 +99,36 @@ async def scheduled_backup_job():
 
 
 async def handle_healthcheck(_request: web.Request) -> web.Response:
-    """HTTP /health endpoint — Docker va VPS healthcheck uchun."""
+    """HTTP /health endpoint — Docker, VPS va Render healthcheck uchun."""
     report = await run_healthcheck()
     status_code = 200 if report.get("status") == "healthy" else 503
     return web.json_response(report, status=status_code)
+
+
+async def handle_metrics(_request: web.Request) -> web.Response:
+    """HTTP /metrics endpoint — Prometheus va Render yagona portli monitoring uchun."""
+    await update_system_gauges()
+    return web.Response(body=generate_latest(), content_type=CONTENT_TYPE_LATEST)
+
+
+async def apply_database_migrations():
+    """Alembic migratsiyalarini avtomatik bajarish, xato bo'lsa xavfsiz create_all fallback."""
+    try:
+        import alembic.command
+        import alembic.config
+
+        alembic_cfg = alembic.config.Config("alembic.ini")
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.postgres_url)
+        await asyncio.to_thread(alembic.command.upgrade, alembic_cfg, "head")
+        log.info("alembic_migrations_applied_successfully")
+    except Exception as e:
+        log.warning("alembic_migration_fallback_to_create_all", error=str(e))
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            log.info("database_schema_ready_via_create_all")
+        except Exception as err:
+            log.warning("database_schema_init_warning", error=str(err))
 
 
 async def main():
@@ -126,16 +153,11 @@ async def main():
     dp.include_router(vacancies.router)
     dp.include_router(hh_auth.router)
 
-    # Prometheus server (port 8000)
+    # Prometheus server (port 8000, faqat local dev uchun)
     start_prometheus_metrics_server(port=8000)
 
-    # Baza jadvallarini tekshirish / yaratish
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        log.info("database_schema_ready")
-    except Exception as e:
-        log.warning("database_schema_init_warning", error=str(e))
+    # Baza jadvallarini tekshirish / migratsiyalarni bajarish
+    await apply_database_migrations()
 
     # Background Pipeline Scheduler
     pipeline = JobPipeline(bot=bot)
@@ -179,9 +201,10 @@ async def main():
     scheduler.start()
     log.info("scheduler_started", interval_minutes=settings.poll_interval_minutes)
 
-    # aiohttp web ilova (Healthcheck va Webhook uchun)
+    # aiohttp web ilova (Healthcheck, Webhook va Metrics uchun)
     app = web.Application()
     app.router.add_get("/health", handle_healthcheck)
+    app.router.add_get("/metrics", handle_metrics)
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -203,12 +226,13 @@ async def main():
     except Exception as e:
         log.warning("bot_commands_registration_failed", error=str(e))
 
+    listen_port = settings.port
     try:
         if settings.webhook_url:
             # Production: Webhook rejimi
             webhook_path = "/webhook"
-            full_webhook_url = f"{settings.webhook_url.rstrip('/')}{webhook_path}"
-            log.info("setting_webhook", url=full_webhook_url)
+            full_webhook_url = settings.normalized_webhook_url
+            log.info("setting_webhook", url=full_webhook_url, port=listen_port)
 
             await bot.set_webhook(
                 url=full_webhook_url,
@@ -223,16 +247,16 @@ async def main():
             webhook_handler.register(app, path=webhook_path)
             setup_application(app, dp, bot=bot)
 
-            site = web.TCPSite(runner, host="0.0.0.0", port=8080)
+            site = web.TCPSite(runner, host="0.0.0.0", port=listen_port)
             await site.start()
-            log.info("webhook_server_listening", port=8080)
+            log.info("webhook_server_listening", port=listen_port)
 
             await asyncio.Event().wait()
         else:
-            # Development / Polling rejimi (lekin /health port 8080 da faol)
-            site = web.TCPSite(runner, host="0.0.0.0", port=8080)
+            # Development / Polling rejimi (lekin /health va /metrics portda faol)
+            site = web.TCPSite(runner, host="0.0.0.0", port=listen_port)
             await site.start()
-            log.info("healthcheck_server_listening", port=8080)
+            log.info("healthcheck_server_listening", port=listen_port)
 
             log.info("running_long_polling")
             await bot.delete_webhook(drop_pending_updates=False)

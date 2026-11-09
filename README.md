@@ -321,3 +321,4 @@ Ushbu loyiha [MIT Litsenziyasi](LICENSE) asosida ochiq taqdim etiladi.
   <b>Muallif: <a href="https://github.com/AdhamIsoqov">Adham Isoqov</a></b><br>
   Savollar yoki takliflar uchun GitHub Issues orqali murojaat qilishingiz mumkin.
 </div>
+

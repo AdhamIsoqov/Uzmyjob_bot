@@ -7,9 +7,8 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from uzmyjob.config import settings
 from uzmyjob.models import application, source, user, vacancy  # noqa: F401
-
-# Modellarni import qilamiz
 from uzmyjob.models.base import Base
 
 config = context.config
@@ -19,8 +18,13 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def get_db_url() -> str:
+    """Settings yoki config dan PostgreSQL ulanish manzilini olish."""
+    return settings.postgres_url or config.get_main_option("sqlalchemy.url")
+
+
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_db_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -38,8 +42,10 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = get_db_url()
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
