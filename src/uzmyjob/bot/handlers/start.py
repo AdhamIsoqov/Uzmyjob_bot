@@ -15,6 +15,7 @@ from sqlalchemy import select
 from uzmyjob.bot.handlers.wizard import ProfileWizard
 from uzmyjob.models.base import AsyncSessionLocal
 from uzmyjob.models.user import Language, User
+from uzmyjob.utils.logger import log
 
 router = Router()
 
@@ -110,6 +111,7 @@ async def cmd_start(message: Message, state: FSMContext):
 @router.callback_query(F.data.startswith("start_lang:"))
 async def process_start_lang(callback: CallbackQuery, state: FSMContext):
     """Til tanlangach, tilni saqlash va FSM Wizard'ni ishga tushirish."""
+    await callback.answer()
     lang_code = callback.data.split(":")[1]
     telegram_id = callback.from_user.id
 
@@ -120,27 +122,37 @@ async def process_start_lang(callback: CallbackQuery, state: FSMContext):
     }
     selected_lang = lang_map.get(lang_code, Language.UZ)
 
-    async with AsyncSessionLocal() as session:
-        stmt = select(User).where(User.telegram_id == telegram_id)
-        user = (await session.execute(stmt)).scalar_one_or_none()
-        if not user:
-            user = User(telegram_id=telegram_id, language=selected_lang)
-            session.add(user)
-        else:
-            user.language = selected_lang
-        await session.commit()
+    try:
+        async with AsyncSessionLocal() as session:
+            stmt = select(User).where(User.telegram_id == telegram_id)
+            user = (await session.execute(stmt)).scalar_one_or_none()
+            if not user:
+                user = User(telegram_id=telegram_id, language=selected_lang)
+                session.add(user)
+            else:
+                user.language = selected_lang
+            await session.commit()
+    except Exception as e:
+        log.error("process_start_lang_db_error", error=str(e), telegram_id=telegram_id)
 
-    await callback.answer("Til tanlandi / Язык выбран")
-    await callback.message.delete()
+    try:
+        if callback.message:
+            await callback.message.delete()
+    except Exception as e:
+        log.warning("process_start_lang_delete_failed", error=str(e))
 
     await state.clear()
     await state.update_data(language=lang_code)
 
-    await callback.message.answer(
-        "🎯 <b>Profil sozlash (Wizard) boshlandi!</b>\n\n"
-        "1-qadam: Qaysi <b>lavozim yoki mutaxassislik</b> bo'yicha ish qidiryapsiz?\n"
-        "<i>(Masalan: Python Backend Developer, DevOps, Frontend React)</i>\n\n"
-        "<i>Bekor qilish uchun istalgan vaqt /cancel deb yozishingiz mumkin.</i>"
+    await callback.bot.send_message(
+        chat_id=telegram_id,
+        text=(
+            "🎯 <b>Profil sozlash (Wizard) boshlandi!</b>\n\n"
+            "1-qadam: Qaysi <b>lavozim yoki mutaxassislik</b> bo'yicha ish qidiryapsiz?\n"
+            "<i>(Masalan: Python Backend Developer, DevOps, Frontend React)</i>\n\n"
+            "<i>Bekor qilish uchun istalgan vaqt /cancel deb yozishingiz mumkin.</i>"
+        ),
+        parse_mode="HTML",
     )
     await state.set_state(ProfileWizard.position)
 
@@ -149,13 +161,23 @@ async def process_start_lang(callback: CallbackQuery, state: FSMContext):
 async def process_start_wizard_callback(callback: CallbackQuery, state: FSMContext):
     """Tugma orqali wizardni boshlash."""
     await callback.answer()
-    await callback.message.delete()
+    telegram_id = callback.from_user.id
+    try:
+        if callback.message:
+            await callback.message.delete()
+    except Exception as e:
+        log.warning("start_wizard_flow_delete_failed", error=str(e))
+
     await state.clear()
-    await callback.message.answer(
-        "🎯 <b>Profil sozlash (Wizard) boshlandi!</b>\n\n"
-        "1-qadam: Qaysi <b>lavozim yoki mutaxassislik</b> bo'yicha ish qidiryapsiz?\n"
-        "<i>(Masalan: Python Backend Developer, DevOps, Frontend React)</i>\n\n"
-        "<i>Bekor qilish uchun istalgan vaqt /cancel deb yozishingiz mumkin.</i>"
+    await callback.bot.send_message(
+        chat_id=telegram_id,
+        text=(
+            "🎯 <b>Profil sozlash (Wizard) boshlandi!</b>\n\n"
+            "1-qadam: Qaysi <b>lavozim yoki mutaxassislik</b> bo'yicha ish qidiryapsiz?\n"
+            "<i>(Masalan: Python Backend Developer, DevOps, Frontend React)</i>\n\n"
+            "<i>Bekor qilish uchun istalgan vaqt /cancel deb yozishingiz mumkin.</i>"
+        ),
+        parse_mode="HTML",
     )
     await state.set_state(ProfileWizard.position)
 

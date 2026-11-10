@@ -19,7 +19,10 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     telegram_id: Mapped[int] = mapped_column(unique=True, index=True)
-    language: Mapped[Language] = mapped_column(Enum(Language), default=Language.UZ)
+    language: Mapped[Language] = mapped_column(
+        Enum(Language, native_enum=False, values_callable=lambda x: [e.value for e in x]),
+        default=Language.UZ,
+    )
 
     # Profil
     position: Mapped[str | None] = mapped_column(String(200))
