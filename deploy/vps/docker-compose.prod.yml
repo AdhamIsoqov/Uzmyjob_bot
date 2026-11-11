@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: uzmyjob-postgres-prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-uzmyjob}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-uzmyjob}
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uzmyjob}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - uzmyjob-network
+
+  bot:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: uzmyjob-bot-prod
+    env_file: ../../.env
+    environment:
+      PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"  # Webhook, /health va /metrics
+    volumes:
+      - ../../logs:/app/logs
+      - ../../backups:/app/backups
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - uzmyjob-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: uzmyjob-prometheus-prod
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - uzmyjob-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: uzmyjob-grafana-prod
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:?GF_SECURITY_ADMIN_PASSWORD must be set}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - uzmyjob-network
+
+networks:
+  uzmyjob-network:
+    driver: bridge
+
+volumes:
+  pgdata_prod:
+  prom_data:
+  grafana_data:
