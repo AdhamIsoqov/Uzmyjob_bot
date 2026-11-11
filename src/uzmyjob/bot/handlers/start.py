@@ -209,7 +209,7 @@ async def cmd_help(message: Message):
     """Botdan foydalanish bo'yicha to'liq qo'llanma."""
     text = (
         "📖 <b>@Uzmyjob_bot Qo'llanma va Navigatsiya</b>\n\n"
-        "Bot O'zbekiston ish bozoridan (hh.uz, Telegram kanallari va RSS manbalardan) "
+        "Bot O'zbekiston ish bozoridan (hh.uz, osonish.uz, uzjobs.uz, Telegram kanallari va RSS manbalardan) "
         "vakansiyalarni to'plab, profilingizga moslarini aqlli saralab beradi.\n\n"
         "📌 <b>Asosiy bo'limlar:</b>\n"
         "• 👤 <b>Mening profilim (/profil)</b> — Qidiruv mezonlari, maosh, shahar va filtrlarni ko'rish hamda tahrirlash.\n"

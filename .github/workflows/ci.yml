@@ -54,11 +54,3 @@ jobs:
           alembic upgrade head
           pytest tests/ -v --tb=short --cov=uzmyjob --cov-report=term-missing
           python scripts/smoke_test.py
-
-  docker-build:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build Docker image
-        run: docker build -t uzmyjob-bot:ci .

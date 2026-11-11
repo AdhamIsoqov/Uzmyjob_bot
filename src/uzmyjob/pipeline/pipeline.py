@@ -13,6 +13,8 @@ from sqlalchemy import or_, select
 
 from uzmyjob.adapters.base import ScraperAdapter
 from uzmyjob.adapters.hh_api import HeadHunterAdapter
+from uzmyjob.adapters.jobs_uz import JobsUzScraperAdapter
+from uzmyjob.adapters.osonish import OsonIshAdapter
 from uzmyjob.adapters.rss import RSSFreelanceAdapter
 from uzmyjob.adapters.tg_channels import TelegramChannelAdapter
 from uzmyjob.agents.matcher import compute_l1_score, match_vacancy
@@ -143,6 +145,8 @@ class JobPipeline:
         self.bot = bot
         self.adapters = adapters or [
             HeadHunterAdapter(),
+            OsonIshAdapter(),
+            JobsUzScraperAdapter(),
             TelegramChannelAdapter(),
             RSSFreelanceAdapter(),
         ]

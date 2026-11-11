@@ -20,8 +20,11 @@
 **@Uzmyjob_bot** — O'zbekiston ish bozoridagi vakansiyalarni yagona oqimga yig'ib, nomzodning profili va rezyumesi asosida saralovchi hamda murojaat jarayonini tezlashtiruvchi Telegram bot.
 
 ### Faol ish manbalari va kengaytirish
-- **Faol manbalar:** `HeadHunter (api.hh.uz)`, ommaviy **Telegram IT-kanallari** (veb-prevyu parseri orqali) va **RSS** (`Kwork`, `FL.ru`).
-- **Stub adapterlar (`is_stub = True`):** `olx.py` va `jobs_uz.py` skelet sifatida ajratilgan va default holatda pipeline'da o'chirilgan; HTML/API integratsiyasi yozilgandan so'ng `is_stub = False` qilib yoqish mumkin.
+- **Faol manbalar (`is_stub = False`):**
+  - `osonish.uz` (`OsonIshAdapter`) — Bandlik vazirligining rasmiy portali JSON API orqali;
+  - `uzjobs.uz` (`JobsUzScraperAdapter`, `source='jobs_uz'`) — rasmiy RSS (`rss_vak.cgi`) orqali;
+  - `HeadHunter (api.hh.uz)`, ommaviy **Telegram IT-kanallari** (`t.me/s/...`) va **RSS** (`freelance.habr.com`).
+- **Cheklangan adapter (`is_stub = True`):** `olx.py` (`OLXScraperAdapter`) — to'liq JSON-LD/HTML kartalar parseriga ega, biroq `www.olx.uz` CloudFront WAF (`403`) himoyasi sababli default pipeline'da o'chirilgan.
 
 ---
 
@@ -64,14 +67,14 @@
 
 ```text
 Uzmyjob_bot/
-├── .github/workflows/ci.yml        # Ruff, Alembic, Pytest, Smoke test va Docker CI
+├── .github/workflows/ci.yml        # Ruff, Alembic, Pytest va Smoke test CI
 ├── deploy/
 │   ├── render/.env.render.example  # Render uchun muhit o'zgaruvchilari namunasi
 │   └── vps/                        # VPS uchun systemd, nginx, prometheus, backup skriptlari
 ├── scripts/
 │   └── smoke_test.py               # Avtonom E2E smoke test skripti
 ├── src/uzmyjob/
-│   ├── adapters/                   # hh_api, tg_channels, rss, olx (stub), jobs_uz (stub)
+│   ├── adapters/                   # hh_api, osonish, jobs_uz (uzjobs RSS), tg_channels, rss, olx (WAF stub)
 │   ├── agents/                     # Gemini client, matcher, reranker, cover_letter, auditor
 │   ├── apply/                      # hh.uz OAuth2/apply va Telegram/SMTP kontakt servislari
 │   ├── bot/                        # main.py (Webhook/Polling + HTTP server), middleware, handlers/
